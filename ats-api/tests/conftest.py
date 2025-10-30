@@ -80,3 +80,19 @@ def auth_token_company_2(client, seed_db):
     client.post("/api/v1/auth/register", json={"email": "test2@test.com", "password": "password", "company_id": 2, "role_id": 1})
     login_response = client.post("/api/v1/auth/login", data={"username": "test2@test.com", "password": "password"})
     return login_response.json()["access_token"]
+
+@pytest.fixture(scope="function")
+def admin_token(client, db):
+    """
+    Creates an Administrator role and user, then returns a JWT access token for that user.
+    """
+    # Create the Administrator role
+    admin_role = models.Role(name="Administrator", permissions=["manage_roles"])
+    db.add(admin_role)
+    db.commit()
+    db.refresh(admin_role)
+
+    # Create the admin user
+    client.post("/api/v1/auth/register", json={"email": "admin@test.com", "password": "password", "company_id": 1, "role_id": admin_role.role_id})
+    login_response = client.post("/api/v1/auth/login", data={"username": "admin@test.com", "password": "password"})
+    return login_response.json()["access_token"]

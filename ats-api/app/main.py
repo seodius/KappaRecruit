@@ -6,7 +6,7 @@ and includes all the API routers from the `app.api` module.
 """
 
 from fastapi import FastAPI
-from .api import auth, jobs, candidates, applications, resumes, interviews
+from .api import auth, jobs, candidates, applications, resumes, interviews, roles
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -18,6 +18,7 @@ app = FastAPI(
 # Include the API routers for different functionalities
 # Each router handles a specific domain of the application (e.g., jobs, candidates).
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(roles.router, prefix="/api/v1", tags=["roles"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
 app.include_router(candidates.router, prefix="/api/v1", tags=["candidates"])
 app.include_router(applications.router, prefix="/api/v1", tags=["applications"])

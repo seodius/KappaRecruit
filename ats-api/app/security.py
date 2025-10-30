@@ -69,3 +69,22 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
 
     return user
+
+class RoleChecker:
+    """
+    FastAPI dependency to check for user roles and permissions.
+    """
+    def __init__(self, allowed_roles: list[str] = None, required_permissions: list[str] = None):
+        self.allowed_roles = allowed_roles
+        self.required_permissions = required_permissions
+
+    def __call__(self, user: schemas.User = Depends(get_current_user)):
+        if self.allowed_roles and user.role.name not in self.allowed_roles:
+            raise HTTPException(status_code=403, detail="Operation not permitted for this role")
+
+        if self.required_permissions:
+            user_permissions = user.role.permissions or []
+            for permission in self.required_permissions:
+                if permission not in user_permissions:
+                    raise HTTPException(status_code=403, detail=f"Missing permission: {permission}")
+        return user
