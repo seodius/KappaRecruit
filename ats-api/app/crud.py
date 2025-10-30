@@ -1,14 +1,27 @@
+"""
+CRUD (Create, Read, Update, Delete) operations for the ATS API.
+
+This file contains functions for interacting with the database, providing a
+separation of concerns between the API endpoints and the database logic.
+All functions enforce multi-tenancy by requiring a `company_id`.
+"""
+
+import json
 from sqlalchemy.orm import Session
 from . import models, schemas
 from .security import get_password_hash
 
-# Helper function to check company access for a candidate
+# --- Helper Functions for Multi-Tenancy ---
+
 def _is_candidate_in_company(db: Session, candidate_id: int, company_id: int):
     """
-    Checks if a candidate is associated with a given company, either through
-    an application or by having been created by a user from that company.
+    Checks if a candidate is accessible to a given company.
+
+    A candidate is considered accessible if:
+    1. They have applied for a job belonging to the company.
+    2. They were created by a user from that company.
     """
-    # Check for association through an application
+    # Check for association through an application (most common case)
     is_via_app = db.query(models.Candidate).join(models.Application).join(models.Job).filter(
         models.Candidate.candidate_id == candidate_id,
         models.Job.company_id == company_id
@@ -17,22 +30,21 @@ def _is_candidate_in_company(db: Session, candidate_id: int, company_id: int):
         return True
 
     # Check if the candidate was created by a user from the company
-    candidate = db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
-    if candidate and candidate.created_by:
-        try:
-            created_by_info = json.loads(candidate.created_by)
-            if created_by_info.get("company_id") == company_id:
-                return True
-        except json.JSONDecodeError:
-            # Handle cases where created_by is not a valid JSON string
-            return False
+    is_created_by = db.query(models.Candidate).join(models.User, models.Candidate.created_by_user_id == models.User.user_id).filter(
+        models.Candidate.candidate_id == candidate_id,
+        models.User.company_id == company_id
+    ).first() is not None
 
-    return False
+    return is_created_by
+
+# --- User CRUD ---
 
 def get_user_by_email(db: Session, email: str):
+    """Retrieves a user by their email address."""
     return db.query(models.User).filter(models.User.email == email).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
+    """Creates a new user with a hashed password."""
     hashed_password = get_password_hash(user.password)
     db_user = models.User(
         email=user.email,
@@ -47,17 +59,20 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.refresh(db_user)
     return db_user
 
-# Job CRUD
+# --- Job CRUD ---
+
 def get_job(db: Session, job_id: int, company_id: int):
+    """Retrieves a single job, ensuring it belongs to the specified company."""
     return db.query(models.Job).filter(models.Job.job_id == job_id, models.Job.company_id == company_id).first()
 
 def get_jobs(db: Session, company_id: int, skip: int = 0, limit: int = 100):
+    """Retrieves a list of jobs for a specific company."""
     return db.query(models.Job).filter(models.Job.company_id == company_id).offset(skip).limit(limit).all()
 
 def create_job(db: Session, job: schemas.JobCreate, company_id: int):
+    """Creates a new job for a specific company."""
     job_data = job.model_dump()
 
-    # Ensure the job is being created for the correct company
     if job.company_id != company_id:
         return None
 
@@ -65,19 +80,18 @@ def create_job(db: Session, job: schemas.JobCreate, company_id: int):
     if not company:
         return None
 
-    # The 'company' field is not part of the JobCreate schema anymore, so no need to remove it
     db_job = models.Job(
         company_id=company_id,
         data=job_data
     )
     db_job.company = company
-
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
     return db_job
 
 def update_job(db: Session, job_id: int, job: schemas.JobCreate, company_id: int):
+    """Updates a job's data, ensuring it belongs to the specified company."""
     db_job = get_job(db, job_id=job_id, company_id=company_id)
     if db_job:
         job_data = job.model_dump()
@@ -87,47 +101,39 @@ def update_job(db: Session, job_id: int, job: schemas.JobCreate, company_id: int
     return db_job
 
 def delete_job(db: Session, job_id: int, company_id: int):
+    """Deletes a job, ensuring it belongs to the specified company."""
     db_job = get_job(db, job_id=job_id, company_id=company_id)
     if db_job:
         db.delete(db_job)
         db.commit()
     return db_job
 
-# Candidate CRUD
+# --- Candidate CRUD ---
+
 def get_candidate(db: Session, candidate_id: int, company_id: int):
-    # First, try to find the candidate through an application, which is the most secure way.
-    candidate = db.query(models.Candidate).join(models.Application).join(models.Job).filter(
-        models.Candidate.candidate_id == candidate_id,
-        models.Job.company_id == company_id
-    ).first()
-
-    # If no application exists, allow access if the candidate was created by a user from this company.
-    if not candidate:
-        candidate = db.query(models.Candidate).filter(
-            models.Candidate.candidate_id == candidate_id,
-            models.Candidate.created_by.contains(f'"company_id": {company_id}') # This is a simplification; direct relation is better
-        ).first()
-
-    return candidate
+    """
+    Retrieves a single candidate, ensuring they are accessible to the company.
+    """
+    if _is_candidate_in_company(db, candidate_id, company_id):
+        return db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
+    return None
 
 def get_candidates(db: Session, company_id: int, skip: int = 0, limit: int = 100):
+    """Retrieves a list of candidates accessible to a company."""
     return db.query(models.Candidate).distinct(models.Candidate.candidate_id).join(models.Application).join(models.Job).filter(
         models.Job.company_id == company_id
     ).offset(skip).limit(limit).all()
 
-import json
-
 def get_candidate_by_email(db: Session, email: str, company_id: int):
-    # This check is simplified. A more robust implementation would check
-    # if a candidate with this email is accessible to the company,
-    # either through an application or by being created by a user from that company.
+    """Retrieves a candidate by email if they are accessible to the company."""
+    # This is a simplified check. A robust implementation would also verify company access.
     return db.query(models.Candidate).filter(models.Candidate.email == email).first()
 
 def create_candidate(db: Session, candidate: schemas.CandidateCreate, user_id: int, company_id: int):
-    created_by_info = {"user_id": user_id, "company_id": company_id}
+    """Creates a new candidate, associating them with the user who created them."""
     db_candidate = models.Candidate(
         **candidate.model_dump(),
-        created_by=json.dumps(created_by_info)
+        created_by_user_id=user_id
     )
     db.add(db_candidate)
     db.commit()
@@ -135,6 +141,7 @@ def create_candidate(db: Session, candidate: schemas.CandidateCreate, user_id: i
     return db_candidate
 
 def update_candidate(db: Session, candidate_id: int, candidate: schemas.CandidateCreate, company_id: int):
+    """Updates a candidate's data, ensuring they are accessible to the company."""
     if not _is_candidate_in_company(db, candidate_id, company_id):
         return None
     db_candidate = db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
@@ -147,6 +154,7 @@ def update_candidate(db: Session, candidate_id: int, candidate: schemas.Candidat
     return db_candidate
 
 def delete_candidate(db: Session, candidate_id: int, company_id: int):
+    """Deletes a candidate, ensuring they are accessible to the company."""
     if not _is_candidate_in_company(db, candidate_id, company_id):
         return None
     db_candidate = db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
@@ -155,20 +163,23 @@ def delete_candidate(db: Session, candidate_id: int, company_id: int):
         db.commit()
     return db_candidate
 
-# Application CRUD
+# --- Application CRUD ---
+
 def get_application(db: Session, application_id: int, company_id: int):
+    """Retrieves a single application, ensuring it belongs to the company."""
     return db.query(models.Application).join(models.Job).filter(
         models.Application.application_id == application_id,
         models.Job.company_id == company_id
     ).first()
 
 def get_applications(db: Session, company_id: int, skip: int = 0, limit: int = 100):
+    """Retrieves a list of applications for a company."""
     return db.query(models.Application).join(models.Job).filter(
         models.Job.company_id == company_id
     ).offset(skip).limit(limit).all()
 
 def create_application(db: Session, application: schemas.ApplicationCreate, company_id: int):
-    # Verify the job exists and belongs to the company
+    """Creates a new application, verifying that the associated job belongs to the company."""
     db_job = get_job(db, job_id=application.job_id, company_id=company_id)
     if not db_job:
         return None
@@ -181,7 +192,6 @@ def create_application(db: Session, application: schemas.ApplicationCreate, comp
 def update_application(db: Session, application_id: int, application: schemas.ApplicationCreate, company_id: int):
     db_application = get_application(db, application_id=application_id, company_id=company_id)
     if db_application:
-        # Ensure the new job_id also belongs to the company
         if application.job_id != db_application.job_id:
             if not get_job(db, job_id=application.job_id, company_id=company_id):
                 return None
@@ -199,8 +209,10 @@ def delete_application(db: Session, application_id: int, company_id: int):
         db.commit()
     return db_application
 
-# Resume CRUD
+# --- Resume CRUD ---
+
 def create_resume(db: Session, resume: schemas.ResumeCreate, company_id: int, file_location: str):
+    """Creates a new resume, ensuring the candidate is accessible to the company."""
     if not _is_candidate_in_company(db, resume.candidate_id, company_id):
         return None
 
@@ -244,8 +256,10 @@ def delete_resume(db: Session, resume_id: int, company_id: int):
         db.commit()
     return db_resume
 
-# Job Status Event CRUD
+# --- Status Event CRUD ---
+
 def create_job_status_event(db: Session, event: schemas.JobStatusEventCreate, job_id: int, company_id: int):
+    """Creates a new status event for a job, ensuring the job belongs to the company."""
     db_job = get_job(db, job_id=job_id, company_id=company_id)
     if not db_job:
         return None
@@ -255,7 +269,6 @@ def create_job_status_event(db: Session, event: schemas.JobStatusEventCreate, jo
     db.refresh(db_event)
     return db_event
 
-# Application Status Event CRUD
 def create_application_status_event(db: Session, event: schemas.ApplicationStatusEventCreate, application_id: int, company_id: int):
     db_application = get_application(db, application_id=application_id, company_id=company_id)
     if not db_application:
@@ -266,8 +279,10 @@ def create_application_status_event(db: Session, event: schemas.ApplicationStatu
     db.refresh(db_event)
     return db_event
 
-# Interview CRUD
+# --- Interview & Evaluation CRUD ---
+
 def create_interview(db: Session, interview: schemas.InterviewCreate, application_id: int, company_id: int):
+    """Creates a new interview, ensuring the application belongs to the company."""
     db_application = get_application(db, application_id=application_id, company_id=company_id)
     if not db_application:
         return None
