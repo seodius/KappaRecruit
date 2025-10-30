@@ -23,7 +23,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating a new user."""
     password: str
-    company_id: int
+    company_id: Optional[int] = None
     role_id: int
 
 class User(UserBase):

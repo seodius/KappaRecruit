@@ -56,7 +56,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         company_id: int = payload.get("company_id")
-        if email is None or company_id is None:
+        if email is None:
             raise credentials_exception
         token_data = schemas.TokenData(email=email, company_id=company_id)
     except JWTError:
@@ -64,7 +64,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
     user = crud.get_user_by_email(db, email=token_data.email)
 
-    # Security check: Ensure the user exists and belongs to the company specified in the token.
+    # Security check: Ensure the user exists and their company matches the token.
+    # This works for both regular users (company_id is an int) and candidates (company_id is None).
     if user is None or user.company_id != token_data.company_id:
         raise credentials_exception
 

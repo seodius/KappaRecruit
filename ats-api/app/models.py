@@ -67,18 +67,20 @@ class Role(Base):
     users = relationship("User", back_populates="role")
 
 class User(Base):
-    """Represents a user of the ATS (e.g., a recruiter, hiring manager)."""
+    """Represents a user of the ATS (e.g., a recruiter, hiring manager, or candidate)."""
     __tablename__ = "users"
     user_id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.company_id"))
+    company_id = Column(Integer, ForeignKey("companies.company_id"), nullable=True) # Nullable for candidates
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     first_name = Column(String)
     last_name = Column(String)
     role_id = Column(Integer, ForeignKey("roles.role_id"))
+    candidate_id = Column(Integer, ForeignKey("candidates.candidate_id"), nullable=True)
 
     company = relationship("Company", back_populates="users")
     role = relationship("Role", back_populates="users")
+    candidate = relationship("Candidate", back_populates="user", uselist=False, foreign_keys="[Candidate.user_id]")
 
 class Job(Base):
     """Represents a job posting."""
@@ -95,6 +97,7 @@ class Candidate(Base):
     """Represents a job candidate."""
     __tablename__ = "candidates"
     candidate_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     first_name = Column(String)
     last_name = Column(String)
     email = Column(String, unique=True, index=True, nullable=False)
@@ -105,7 +108,8 @@ class Candidate(Base):
     created_by_user_id = Column(Integer, ForeignKey("users.user_id"))
     job_title = Column(String)
 
-    created_by = relationship("User")
+    user = relationship("User", back_populates="candidate", foreign_keys=[user_id])
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
     applications = relationship("Application", back_populates="candidate")
     resumes = relationship("Resume", back_populates="candidate")
 

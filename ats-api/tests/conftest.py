@@ -57,9 +57,11 @@ def seed_db(db):
     company1 = models.Company(name="Test Company", company_id=1)
     company2 = models.Company(name="Second Company", company_id=2)
     role = models.Role(name="Test Role", role_id=1)
+    candidate_role = models.Role(name="Candidate", role_id=2)
     db.add(company1)
     db.add(company2)
     db.add(role)
+    db.add(candidate_role)
     db.commit()
 
 @pytest.fixture(scope="function")
