@@ -98,6 +98,84 @@ def delete_role(db: Session, role_id: int):
         db.commit()
     return db_role
 
+# --- Department CRUD ---
+
+def get_department(db: Session, department_id: int, company_id: int):
+    """Retrieves a single department, ensuring it belongs to the company."""
+    return db.query(models.Department).filter(models.Department.department_id == department_id, models.Department.company_id == company_id).first()
+
+def get_departments_by_company(db: Session, company_id: int, skip: int = 0, limit: int = 100):
+    """Retrieves a list of departments for a specific company."""
+    return db.query(models.Department).filter(models.Department.company_id == company_id).offset(skip).limit(limit).all()
+
+def create_department(db: Session, department: schemas.DepartmentCreate, company_id: int):
+    """Creates a new department for a specific company."""
+    if department.company_id != company_id:
+        return None
+    db_department = models.Department(**department.model_dump())
+    db.add(db_department)
+    db.commit()
+    db.refresh(db_department)
+    return db_department
+
+def update_department(db: Session, department_id: int, department: schemas.DepartmentUpdate, company_id: int):
+    """Updates a department's details."""
+    db_department = get_department(db, department_id=department_id, company_id=company_id)
+    if db_department:
+        update_data = department.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_department, key, value)
+        db.commit()
+        db.refresh(db_department)
+    return db_department
+
+def delete_department(db: Session, department_id: int, company_id: int):
+    """Deletes a department."""
+    db_department = get_department(db, department_id=department_id, company_id=company_id)
+    if db_department:
+        db.delete(db_department)
+        db.commit()
+    return db_department
+
+# --- Contact CRUD ---
+
+def get_contact(db: Session, contact_id: int, company_id: int):
+    """Retrieves a single contact, ensuring it belongs to the company."""
+    return db.query(models.Contact).filter(models.Contact.contact_id == contact_id, models.Contact.company_id == company_id).first()
+
+def get_contacts_by_company(db: Session, company_id: int, skip: int = 0, limit: int = 100):
+    """Retrieves a list of contacts for a specific company."""
+    return db.query(models.Contact).filter(models.Contact.company_id == company_id).offset(skip).limit(limit).all()
+
+def create_contact(db: Session, contact: schemas.ContactCreate, company_id: int):
+    """Creates a new contact for a specific company."""
+    if contact.company_id != company_id:
+        return None
+    db_contact = models.Contact(**contact.model_dump())
+    db.add(db_contact)
+    db.commit()
+    db.refresh(db_contact)
+    return db_contact
+
+def update_contact(db: Session, contact_id: int, contact: schemas.ContactUpdate, company_id: int):
+    """Updates a contact's details."""
+    db_contact = get_contact(db, contact_id=contact_id, company_id=company_id)
+    if db_contact:
+        update_data = contact.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_contact, key, value)
+        db.commit()
+        db.refresh(db_contact)
+    return db_contact
+
+def delete_contact(db: Session, contact_id: int, company_id: int):
+    """Deletes a contact."""
+    db_contact = get_contact(db, contact_id=contact_id, company_id=company_id)
+    if db_contact:
+        db.delete(db_contact)
+        db.commit()
+    return db_contact
+
 # --- Job CRUD ---
 
 def get_job(db: Session, job_id: int, company_id: int):

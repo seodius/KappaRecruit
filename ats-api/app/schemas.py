@@ -55,6 +55,51 @@ class Role(RoleBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+# --- Department and Contact Schemas ---
+
+class ContactBase(BaseModel):
+    """Base schema for a contact."""
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+class ContactCreate(ContactBase):
+    """Schema for creating a new contact."""
+    company_id: Optional[int] = None
+    department_id: Optional[int] = None
+
+class ContactUpdate(ContactBase):
+    """Schema for updating a contact."""
+    pass
+
+class Contact(ContactBase):
+    """Schema for representing a contact in API responses."""
+    contact_id: int
+    company_id: Optional[int] = None
+    department_id: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class DepartmentBase(BaseModel):
+    """Base schema for a department."""
+    name: str
+    parent_department_id: Optional[int] = None
+
+class DepartmentCreate(DepartmentBase):
+    """Schema for creating a new department."""
+    company_id: int
+
+class DepartmentUpdate(DepartmentBase):
+    """Schema for updating a department."""
+    pass
+
+class Department(DepartmentBase):
+    """Schema for representing a department in API responses."""
+    department_id: int
+    company_id: int
+    contacts: List[Contact] = []
+    children: List['Department'] = []
+    model_config = ConfigDict(from_attributes=True)
+
 # --- Event Schemas (for status histories) ---
 
 class JobStatusEventBase(BaseModel):
