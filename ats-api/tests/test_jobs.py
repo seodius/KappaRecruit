@@ -13,7 +13,14 @@ def test_job_workflow_and_security(client, auth_token_company_1, auth_token_comp
     # --- 1. Test Job Creation ---
     job_payload = {
         "jobId": str(uuid4()),
-        "description": "A job for workflow testing.",
+        "descriptions": [
+            {
+                "text": "A job for workflow testing.",
+                "goal": "Internal testing",
+                "target_platform": "Web",
+                "language": "en-US"
+            }
+        ],
         "company_id": 1,
         "location": {"type": "Onsite"},
         "employmentType": "Full-time",
@@ -26,7 +33,7 @@ def test_job_workflow_and_security(client, auth_token_company_1, auth_token_comp
     )
     assert create_res.status_code == 200
     job_id = create_res.json()["job_id"]
-    assert create_res.json()["description"] == "A job for workflow testing."
+    assert create_res.json()["descriptions"][0]["text"] == "A job for workflow testing."
 
     # --- 1a. Verify Retrieval of the Created Job ---
     get_res = client.get(
@@ -36,10 +43,11 @@ def test_job_workflow_and_security(client, auth_token_company_1, auth_token_comp
     assert get_res.status_code == 200
     assert get_res.json()["job_id"] == job_id
     assert get_res.json()["company"]["name"] == "Test Company"  # From seed_db in conftest.py
+    assert len(get_res.json()["descriptions"]) == 1
 
     # --- 2. Test Input Validation (Missing Field) ---
     invalid_payload = job_payload.copy()
-    del invalid_payload["description"]
+    del invalid_payload["descriptions"]
     invalid_res = client.post(
         "/api/v1/jobs",
         json=invalid_payload,

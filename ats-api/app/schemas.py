@@ -180,10 +180,18 @@ class HiringManager(BaseModel):
     name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+class JobDescription(BaseModel):
+    """Schema for a single, detailed job description."""
+    text: str
+    goal: Optional[str] = None
+    target_platform: Optional[str] = None
+    language: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class JobBase(BaseModel):
     """Base schema for a job posting, containing the detailed, nested structure."""
     jobId: str
-    description: str
+    descriptions: List[JobDescription]
     location: LocationInfo
     employmentType: str
     responsibilities: List[str]
