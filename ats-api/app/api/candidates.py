@@ -36,7 +36,7 @@ def read_candidates(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
 @router.get("/candidates/{candidate_id}", response_model=schemas.Candidate)
 def read_candidate(candidate_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(security.get_current_user)):
     """Retrieves a single candidate by ID, ensuring they are accessible to the company."""
-    db_candidate = crud.get_candidate(db, candidate_id=candidate_id, company_id=current_user.company_id)
+    db_candidate = crud.get_candidate(db, candidate_id=candidate_id, company_id=current_user.company_id, user_id=current_user.user_id)
     if db_candidate is None:
         raise HTTPException(status_code=404, detail="Candidate not found")
     return db_candidate

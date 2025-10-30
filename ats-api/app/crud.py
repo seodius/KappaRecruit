@@ -7,6 +7,7 @@ All functions enforce multi-tenancy by requiring a `company_id`.
 """
 
 import json
+from typing import Optional
 from sqlalchemy.orm import Session
 from . import models, schemas
 from .security import get_password_hash
@@ -227,12 +228,19 @@ def delete_job(db: Session, job_id: int, company_id: int):
 
 # --- Candidate CRUD ---
 
-def get_candidate(db: Session, candidate_id: int, company_id: int):
+def get_candidate(db: Session, candidate_id: int, company_id: Optional[int] = None, user_id: Optional[int] = None):
     """
-    Retrieves a single candidate, ensuring they are accessible to the company.
+    Retrieves a single candidate with robust access control.
+
+    - If a `company_id` is provided, it checks if the candidate is accessible to that company.
+    - If a `user_id` is provided, it checks if the candidate is linked to that user account.
     """
-    if _is_candidate_in_company(db, candidate_id, company_id):
-        return db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
+    if company_id is not None:
+        if _is_candidate_in_company(db, candidate_id, company_id):
+            return db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
+    elif user_id is not None:
+        return db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id, models.Candidate.user_id == user_id).first()
+
     return None
 
 def get_candidates(db: Session, company_id: int, skip: int = 0, limit: int = 100):
@@ -246,7 +254,9 @@ def get_candidate_by_email(db: Session, email: str, company_id: int):
     # This is a simplified check. A robust implementation would also verify company access.
     return db.query(models.Candidate).filter(models.Candidate.email == email).first()
 
-def create_candidate(db: Session, candidate: schemas.CandidateCreate, user_id: int, company_id: int):
+from typing import Optional
+
+def create_candidate(db: Session, candidate: schemas.CandidateCreate, user_id: Optional[int], company_id: Optional[int]):
     """Creates a new candidate, associating them with the user who created them."""
     db_candidate = models.Candidate(
         **candidate.model_dump(),
@@ -325,6 +335,10 @@ def delete_application(db: Session, application_id: int, company_id: int):
         db.delete(db_application)
         db.commit()
     return db_application
+
+def get_applications_by_candidate(db: Session, candidate_id: int):
+    """Retrieves all applications for a specific candidate."""
+    return db.query(models.Application).filter(models.Application.candidate_id == candidate_id).all()
 
 # --- Resume CRUD ---
 
