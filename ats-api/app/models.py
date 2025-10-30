@@ -54,6 +54,8 @@ class Company(Base):
 
     users = relationship("User", back_populates="company")
     jobs = relationship("Job", back_populates="company")
+    departments = relationship("Department", back_populates="company")
+    contacts = relationship("Contact", back_populates="company")
 
 class Role(Base):
     """Represents a user role for Role-Based Access Control (RBAC)."""
@@ -190,3 +192,29 @@ class JobStatusEvent(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("Job")
+
+class Department(Base):
+    """Represents a department within a company, with support for hierarchies."""
+    __tablename__ = "departments"
+    department_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.company_id"))
+    parent_department_id = Column(Integer, ForeignKey("departments.department_id"))
+
+    company = relationship("Company", back_populates="departments")
+    parent = relationship("Department", remote_side=[department_id], back_populates="children")
+    children = relationship("Department", back_populates="parent")
+    contacts = relationship("Contact", back_populates="department")
+
+class Contact(Base):
+    """Represents a contact person, associated with either a company or a department."""
+    __tablename__ = "contacts"
+    contact_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String)
+    phone = Column(String)
+    company_id = Column(Integer, ForeignKey("companies.company_id"))
+    department_id = Column(Integer, ForeignKey("departments.department_id"))
+
+    company = relationship("Company", back_populates="contacts")
+    department = relationship("Department", back_populates="contacts")
