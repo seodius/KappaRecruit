@@ -60,6 +60,7 @@ class Role(Base):
     __tablename__ = "roles"
     role_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
+    permissions = Column(JSON)
 
     users = relationship("User", back_populates="role")
 

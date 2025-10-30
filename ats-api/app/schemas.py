@@ -34,6 +34,27 @@ class User(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+# --- Role Schemas ---
+
+class RoleBase(BaseModel):
+    """Base schema for a role."""
+    name: str
+    permissions: Optional[List[str]] = []
+
+class RoleCreate(RoleBase):
+    """Schema for creating a new role."""
+    pass
+
+class RoleUpdate(RoleBase):
+    """Schema for updating an existing role."""
+    pass
+
+class Role(RoleBase):
+    """Schema for representing a role in API responses."""
+    role_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- Event Schemas (for status histories) ---
 
 class JobStatusEventBase(BaseModel):

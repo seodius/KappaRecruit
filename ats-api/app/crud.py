@@ -39,9 +39,11 @@ def _is_candidate_in_company(db: Session, candidate_id: int, company_id: int):
 
 # --- User CRUD ---
 
+from sqlalchemy.orm import joinedload
+
 def get_user_by_email(db: Session, email: str):
-    """Retrieves a user by their email address."""
-    return db.query(models.User).filter(models.User.email == email).first()
+    """Retrieves a user by their email address, eagerly loading the role relationship."""
+    return db.query(models.User).options(joinedload(models.User.role)).filter(models.User.email == email).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
     """Creates a new user with a hashed password."""
@@ -58,6 +60,43 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+# --- Role CRUD ---
+
+def get_role(db: Session, role_id: int):
+    """Retrieves a single role by its ID."""
+    return db.query(models.Role).filter(models.Role.role_id == role_id).first()
+
+def get_roles(db: Session, skip: int = 0, limit: int = 100):
+    """Retrieves a list of all roles."""
+    return db.query(models.Role).offset(skip).limit(limit).all()
+
+def create_role(db: Session, role: schemas.RoleCreate):
+    """Creates a new role."""
+    db_role = models.Role(**role.model_dump())
+    db.add(db_role)
+    db.commit()
+    db.refresh(db_role)
+    return db_role
+
+def update_role(db: Session, role_id: int, role: schemas.RoleUpdate):
+    """Updates a role's details."""
+    db_role = get_role(db, role_id=role_id)
+    if db_role:
+        update_data = role.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_role, key, value)
+        db.commit()
+        db.refresh(db_role)
+    return db_role
+
+def delete_role(db: Session, role_id: int):
+    """Deletes a role."""
+    db_role = get_role(db, role_id=role_id)
+    if db_role:
+        db.delete(db_role)
+        db.commit()
+    return db_role
 
 # --- Job CRUD ---
 
