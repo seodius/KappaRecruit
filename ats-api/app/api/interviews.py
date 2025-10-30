@@ -1,3 +1,7 @@
+"""
+API endpoints for managing interviews and evaluations.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -13,6 +17,7 @@ def create_interview_for_application(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(security.get_current_user)
 ):
+    """Schedules a new interview for a specific application."""
     db_interview = crud.create_interview(db=db, interview=interview, application_id=application_id, company_id=current_user.company_id)
     if db_interview is None:
         raise HTTPException(status_code=404, detail="Application not found or access denied.")
@@ -20,6 +25,7 @@ def create_interview_for_application(
 
 @router.get("/interviews/{interview_id}", response_model=schemas.Interview)
 def read_interview(interview_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(security.get_current_user)):
+    """Retrieves a single interview by its ID."""
     db_interview = crud.get_interview(db, interview_id=interview_id, company_id=current_user.company_id)
     if db_interview is None:
         raise HTTPException(status_code=404, detail="Interview not found")
@@ -32,6 +38,7 @@ def create_evaluation_for_interview(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(security.get_current_user)
 ):
+    """Submits an evaluation (feedback and rating) for a completed interview."""
     db_evaluation = crud.create_evaluation(db=db, evaluation=evaluation, interview_id=interview_id, company_id=current_user.company_id)
     if db_evaluation is None:
         raise HTTPException(status_code=404, detail="Interview not found or access denied.")
