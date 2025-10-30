@@ -22,9 +22,8 @@ def test_candidate_workflow_and_security(client, auth_token_company_1, auth_toke
     # with Company 1 via an application.
     job_payload = {
         "jobId": "cand-sec-job-123",
-        "description": "A job for security testing.",
+            "descriptions": [{"text": "A job for security testing."}],
         "company_id": 1,
-        "company": {"name": "Test Company One"},
         "location": {"type": "Onsite"},
         "employmentType": "Contract",
         "responsibilities": ["Security checks"],

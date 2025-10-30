@@ -7,7 +7,7 @@ import pytest
 def job_payload():
     return {
         "jobId": "test-engineer-123",
-        "description": "A job for testing.",
+        "descriptions": [{"text": "A job for testing."}],
         "company_id": 1,
         "location": {"type": "Onsite"},
         "employmentType": "Full-time",

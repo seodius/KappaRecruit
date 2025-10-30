@@ -5,9 +5,8 @@ def test_interview_and_evaluation_workflow(client, auth_token_company_1):
     # Setup: Create a job, candidate, and application
     job_payload = {
         "jobId": "interview-test-job-123",
-        "description": "A job for interview testing.",
+        "descriptions": [{"text": "A job for interview testing."}],
         "company_id": 1,
-        "company": {"name": "Interview Test Corp"},
         "location": {"type": "Hybrid"},
         "employmentType": "Full-time",
         "responsibilities": ["Being interviewed"],

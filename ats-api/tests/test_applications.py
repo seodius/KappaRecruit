@@ -4,9 +4,8 @@ def test_application_workflow_and_security(client, auth_token_company_1, auth_to
     # Setup: Create a job and a candidate for Company 1
     job_payload = {
         "jobId": "app-test-job-123",
-        "description": "A job for application testing.",
+        "descriptions": [{"text": "A job for application testing."}],
         "company_id": 1,
-        "company": {"name": "Test Company One"},
         "location": {"type": "Remote"},
         "employmentType": "Full-time",
         "responsibilities": ["Testing applications"],
