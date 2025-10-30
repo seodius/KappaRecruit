@@ -99,9 +99,10 @@ class Candidate(Base):
     address = Column(Text)
     linkedin_profile = Column(String)
     date_created = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    created_by = Column(String) # JSON string to track the creating user/company
+    created_by_user_id = Column(Integer, ForeignKey("users.user_id"))
     job_title = Column(String)
 
+    created_by = relationship("User")
     applications = relationship("Application", back_populates="candidate")
     resumes = relationship("Resume", back_populates="candidate")
 

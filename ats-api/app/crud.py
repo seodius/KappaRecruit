@@ -30,16 +30,12 @@ def _is_candidate_in_company(db: Session, candidate_id: int, company_id: int):
         return True
 
     # Check if the candidate was created by a user from the company
-    candidate = db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
-    if candidate and candidate.created_by:
-        try:
-            created_by_info = json.loads(candidate.created_by)
-            if created_by_info.get("company_id") == company_id:
-                return True
-        except json.JSONDecodeError:
-            return False
+    is_created_by = db.query(models.Candidate).join(models.User, models.Candidate.created_by_user_id == models.User.user_id).filter(
+        models.Candidate.candidate_id == candidate_id,
+        models.User.company_id == company_id
+    ).first() is not None
 
-    return False
+    return is_created_by
 
 # --- User CRUD ---
 
@@ -118,23 +114,9 @@ def get_candidate(db: Session, candidate_id: int, company_id: int):
     """
     Retrieves a single candidate, ensuring they are accessible to the company.
     """
-    # First, try to find the candidate through an application.
-    candidate = db.query(models.Candidate).join(models.Application).join(models.Job).filter(
-        models.Candidate.candidate_id == candidate_id,
-        models.Job.company_id == company_id
-    ).first()
-
-    # If no application exists, check if the candidate was created by the company.
-    if not candidate:
-        candidate_db = db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
-        if candidate_db and candidate_db.created_by:
-            try:
-                created_by_info = json.loads(candidate_db.created_by)
-                if created_by_info.get("company_id") == company_id:
-                    return candidate_db
-            except json.JSONDecodeError:
-                return None
-    return candidate
+    if _is_candidate_in_company(db, candidate_id, company_id):
+        return db.query(models.Candidate).filter(models.Candidate.candidate_id == candidate_id).first()
+    return None
 
 def get_candidates(db: Session, company_id: int, skip: int = 0, limit: int = 100):
     """Retrieves a list of candidates accessible to a company."""
@@ -148,11 +130,10 @@ def get_candidate_by_email(db: Session, email: str, company_id: int):
     return db.query(models.Candidate).filter(models.Candidate.email == email).first()
 
 def create_candidate(db: Session, candidate: schemas.CandidateCreate, user_id: int, company_id: int):
-    """Creates a new candidate, tracking which user and company created them."""
-    created_by_info = {"user_id": user_id, "company_id": company_id}
+    """Creates a new candidate, associating them with the user who created them."""
     db_candidate = models.Candidate(
         **candidate.model_dump(),
-        created_by=json.dumps(created_by_info)
+        created_by_user_id=user_id
     )
     db.add(db_candidate)
     db.commit()
